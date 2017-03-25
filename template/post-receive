@@ -1,0 +1,41 @@
+#!/bin/bash
+
+# This command will be run in the checkout directory
+# The push will not finish until this command is finished executing
+# you can detach it by setting DETACH to true
+RUN_CMD='echo "To configure auto-deployment, mofidy RUN_CMD in hooks/post-receive"'
+
+
+DETACH=false
+OUT_FILE=/dev/null
+ERR_FILE=/dev/null
+
+# We assume this name ends with .git
+REPO=`basename $PWD`
+GIT_DIR=$PWD
+last=${REPO##*.}
+NAME=${REPO%.*}
+if [[ "$last" -ne "git" ]]; then
+    echo "Directory does not end with .git"
+fi
+
+CHECKOUT_DIR=`dirname $PWD`/$NAME
+
+while read oldrev newrev ref
+do
+    if [[ $ref =~ .*/master$ ]];
+    then
+        echo "Deploying master branch to $CHECKOUT_DIR"
+	mkdir -p "$CHECKOUT_DIR"
+        git --work-tree="$CHECKOUT_DIR" --git-dir="$GIT_DIR" checkout -f
+	cd "$CHECKOUT_DIR"
+
+	if [[ "$DETACH" = true ]]; then
+		nohup bash -c "$RUN_CMD" >$OUT_FILE 2>$ERR_FILE &
+	else
+		bash -c "$RUN_CMD"
+	fi
+	break
+    fi
+done
+

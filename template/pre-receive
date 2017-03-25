@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Make this command exit non-zero to abort the commit
+#TEST_CMD='echo "No tests specified" && exit 1'
+TEST_CMD='echo "No tests. Edit hooks/pre-receive to set them up"'
+
+
+# We assume this name ends with .git
+REPO=`basename $PWD`
+GIT_DIR=$PWD
+last=${REPO##*.}
+NAME=${REPO%.*}
+if [[ "$last" -ne "git" ]]; then
+    echo "Directory does not end with .git"
+fi
+
+CHECKOUT_DIR=`dirname $PWD`/$NAME
+
+while read oldrev newrev ref
+do
+    if [[ $ref =~ .*/master$ ]];
+    then
+	echo "Running tests for master branch"
+	mkdir -p "$CHECKOUT_DIR"
+        git --work-tree="$CHECKOUT_DIR" --git-dir="$GIT_DIR" checkout -f
+
+	bash -c "$TEST_CMD"
+	ret_val=$?
+	if [[ $ret_val -ne 0 ]]; then
+		echo "Rejected: Tests failed [$ret_val]"
+		exit $ret_val
+	fi
+	break
+    fi
+done
+
